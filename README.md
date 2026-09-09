@@ -54,7 +54,7 @@ VLESS TCP/GRPC REALITY (passthrough واقعی، بدون تداخل)
 <br>
 <br>
 <p>1. نصب اسکریپت</p>
-
+```bash
 wget "https://raw.githubusercontent.com/KanekiDevPro/WUI/main/dds-wui.sh" -O dds-wui.sh && chmod +x dds-wui.sh && bash dds-wui.sh
 <br><br>
 <p>2. اجرای اسکریپت</p>
