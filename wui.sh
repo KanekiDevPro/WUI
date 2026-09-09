@@ -36,6 +36,28 @@ generateRandomPort() {
 #------------------------------- PRE INSTALL -------------------
 preinstall(){
 
+install_cert_reload_hook(){
+cat > /usr/local/bin/wui-cert-reload.sh <<'HOOKEOF'
+#!/bin/bash
+# WUI: refresh haproxy bundles + panel copies after acme.sh renewal.
+SSL_DIR="/var/wui-certs"
+[ -d "$SSL_DIR" ] || exit 0
+for fc in "$SSL_DIR"/*-fullchain.pem; do
+    [ -f "$fc" ] || continue
+    base="${fc%-fullchain.pem}"
+    [ -f "$base.key" ] || continue
+    cat "$fc" "$base.key" > "$base-mixed.pem"
+    dom="$(basename "$base")"
+    [ -f "/root/.acme.sh/${dom}_ecc/${dom}.cer" ] && cp "/root/.acme.sh/${dom}_ecc/${dom}.cer" "$base-certeficateFile.cer"
+    [ -f "/root/.acme.sh/${dom}_ecc/ca.cer" ] && cp "/root/.acme.sh/${dom}_ecc/ca.cer" "$base-CA.ca"
+done
+chown -R www-data:www-data "$SSL_DIR"
+systemctl restart haproxy 2>/dev/null
+systemctl restart apache2 2>/dev/null
+HOOKEOF
+chmod +x /usr/local/bin/wui-cert-reload.sh
+}
+
 sudo apt update
 sudo apt install -y apache2 \
                  ghostscript \
@@ -54,6 +76,9 @@ sudo apt install -y apache2 \
                  toilet \
                  haproxy \
                  socat 
+
+install_cert_reload_hook
+
                 }
 
 
@@ -220,7 +245,8 @@ sub_certificate_path="$ssl_path/$sub_domain-certeficateFile.cer"
 ~/.acme.sh/acme.sh \
   --issue --force --standalone -d "$sub_domain" \
   --fullchain-file "$sub_fullchain_path" \
-  --key-file "$sub_key_path"
+  --key-file "$sub_key_path" \
+  --reloadcmd "/usr/local/bin/wui-cert-reload.sh"
 
 cp /root/.acme.sh/${sub_domain}_ecc/$sub_domain.cer $sub_certificate_path
 cp /root/.acme.sh/${sub_domain}_ecc/ca.cer $sub_ca_path
@@ -231,7 +257,8 @@ fi
 ~/.acme.sh/acme.sh \
   --issue --force --standalone -d "$domain" \
   --fullchain-file "$fullchain_path" \
-  --key-file "$key_path"
+  --key-file "$key_path" \
+  --reloadcmd "/usr/local/bin/wui-cert-reload.sh"
 
 cp /root/.acme.sh/${domain}_ecc/$domain.cer $certificate_path
 cp /root/.acme.sh/${domain}_ecc/ca.cer $ca_path
@@ -943,7 +970,8 @@ sudo x-ui stop
 ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt > /dev/null 2>&1
 ~/.acme.sh/acme.sh \
   --issue --force --standalone -d "$domain_sni" \
-  --fullchain-file "$ssl_path/$domain_sni-fullchain.pem" \
+  --key-file "$ssl_path/$domain_sni.key" \
+  --reloadcmd "/usr/local/bin/wui-cert-reload.sh"
   --key-file "$ssl_path/$domain_sni.key"
 
 sudo bash -c "cat $ssl_path/$domain_sni-fullchain.pem $ssl_path/$domain_sni.key > $ssl_path/$domain_sni-mixed.pem"
@@ -1054,7 +1082,8 @@ sub_ca_path_auto="$ssl_path/$sub_domain_auto-CA.ca"
 sub_certificate_path_auto="$ssl_path/$sub_domain_auto-certeficateFile.cer"
 
 ~/.acme.sh/acme.sh \
-  --issue --force --standalone -d "$sub_domain_auto" \
+  --key-file "$sub_key_path_auto" \
+  --reloadcmd "/usr/local/bin/wui-cert-reload.sh"
   --fullchain-file "$sub_fullchain_path_auto" \
   --key-file "$sub_key_path_auto"
 
@@ -1064,7 +1093,8 @@ sudo bash -c "cat $sub_fullchain_path_auto $sub_key_path_auto > $sub_mixed_ssl_p
 
 fi
 
-~/.acme.sh/acme.sh \
+  --key-file "$key_path_auto" \
+  --reloadcmd "/usr/local/bin/wui-cert-reload.sh"
   --issue --force --standalone -d "$domain_auto" \
   --fullchain-file "$fullchain_path_auto" \
   --key-file "$key_path_auto"
@@ -1442,7 +1472,8 @@ sudo x-ui stop
 ssl_path="/var/wui-certs"
 echo "OK , Now Please Enter your Domain/Subdomain "
 read -p "Domain/Subdomain ( e.g. a.example.com) ->> " domain_global
-~/.acme.sh/acme.sh --set-default-ca --server letsencrypt > /dev/null 2>&1
+  --key-file "$ssl_path/$domain_global.key" \
+  --reloadcmd "/usr/local/bin/wui-cert-reload.sh"
 ~/.acme.sh/acme.sh \
   --issue --force --standalone -d "$domain_global" \
   --fullchain-file "$ssl_path/$domain_global-fullchain.pem" \
