@@ -65,7 +65,7 @@ xui_backup(){
 
    echo -e "Create a backup file in ${GREEN}/root/x-ui-backup/x-ui_backup.db${RESET}"
    sleep 2
-   mkdir /root/x-ui-backup/
+   mkdir -p /root/x-ui-backup/
    cp /etc/x-ui/x-ui.db /root/x-ui-backup/x-ui_backup.db
 
 }
@@ -93,6 +93,11 @@ getinfo(){
     while true; do
     read -p "Please Enter X-UI Panel Port ->>    " xui_port
 
+    if ! [[ "$xui_port" =~ ^[0-9]+$ ]] || [ "$xui_port" -lt 1 ] || [ "$xui_port" -gt 65535 ]; then
+        echo "Please enter a valid port number (1-65535)."
+        continue
+    fi
+
     if [ "$xui_port" -eq 80 ] || [ "$xui_port" -eq 443 ]; then
         echo "The port should not be 80 or 443. Please change it from panel and  try again."
         continue
@@ -110,6 +115,10 @@ getinfo(){
         # read -p "Enter Your Subscription path (e.g., /xui): " sub_path_i
         # sub_path="${sub_path_i//\//}"
         read -p "Enter Your Subscription port (e.g., 8443): " sub_port
+        if ! [[ "$sub_port" =~ ^[0-9]+$ ]] || [ "$sub_port" -lt 1 ] || [ "$sub_port" -gt 65535 ]; then
+        echo "Invalid port, using a random one."
+        sub_port=$(generateRandomPort)
+        fi
         if [ "$sub_port" -eq 80 ] || [ "$sub_port" -eq 443 ]; then
         sub_port=$(generateRandomString)
         echo ""
@@ -426,20 +435,32 @@ frontend http_front
 
 
 
-frontend https_front_reality
+frontend ft_443
     bind *:443
+    mode tcp
     tcp-request inspect-delay 5s
     tcp-request content accept if { req.ssl_hello_type 1 }
+
     #reality_tcp_front_start
 
     #reality_tcp_front_end
+
+    acl panel_sni req.ssl_sni -i $domain $sub_domain
+    use_backend bk_sslterm if panel_sni
+    default_backend bk_sslterm
+
 
 #reality_tcp_backend_start
 
 #reality_tcp_backend_end
 
+backend bk_sslterm
+    mode tcp
+    server sslterm 127.0.0.1:8443 send-proxy-v2
+
+
 frontend https_front
-    bind *:443 ssl crt $mixed_ssl_path $sub_cer_config 
+    bind 127.0.0.1:8443 ssl crt $mixed_ssl_path $sub_cer_config accept-proxy
     #all_tcp_tls_certs_start
 
     #all_tcp_tls_certs_end
@@ -779,7 +800,7 @@ temp_cfg=$(mktemp)
 
 # حذف محتوای داخل بلوک‌ها
 sed '/#all_tcp_tls_certs_start/,/#all_tcp_tls_certs_end/{//!d}' $haproxy_cfg | \
-sed '/#all_tcp_tls_front_start/,/#all_tcp_tls_front_end/{//!d}' $haproxy_cfg | \
+sed '/#all_tcp_tls_front_start/,/#all_tcp_tls_front_end/{//!d}' | \
 sed '/#all_tcp_tls_backend_start/,/#all_tcp_tls_backend_end/{//!d}' > $temp_cfg
 
 # اضافه کردن محتوای فایل‌های tmp به بلوک‌های مربوطه
@@ -1186,20 +1207,32 @@ frontend http_front
 
 
 
-frontend https_front_reality
+frontend ft_443
     bind *:443
+    mode tcp
     tcp-request inspect-delay 5s
     tcp-request content accept if { req.ssl_hello_type 1 }
+
     #reality_tcp_front_start
 
     #reality_tcp_front_end
+
+    acl panel_sni req.ssl_sni -i $domain_auto $sub_domain_auto
+    use_backend bk_sslterm if panel_sni
+    default_backend bk_sslterm
+
 
 #reality_tcp_backend_start
 
 #reality_tcp_backend_end
 
+backend bk_sslterm
+    mode tcp
+    server sslterm 127.0.0.1:8443 send-proxy-v2
+
+
 frontend https_front
-    bind *:443 ssl crt $mixed_ssl_path_auto $sub_cer_config_auto 
+    bind 127.0.0.1:8443 ssl crt $mixed_ssl_path_auto $sub_cer_config_auto accept-proxy
     #all_tcp_tls_certs_start
 
     #all_tcp_tls_certs_end
@@ -1376,6 +1409,9 @@ read -p "Domain/Subdomain ( e.g. a.example.com) ->> " domain_global
 fullchain_path_global="/var/wui-certs/${domain_global}-fullchain.pem"
 pvkey_path_global="/var/wui-certs/$domain_global.key"
 
+    sudo systemctl restart haproxy
+    sudo systemctl restart apache2
+    sudo x-ui start
     if [ -f "$fullchain_path_global" ] ; then
     clear
     echo "-------------------------------- SSl  ------------------------------------------"
@@ -1390,12 +1426,6 @@ pvkey_path_global="/var/wui-certs/$domain_global.key"
         echo -e "Sorry, there was a problem receiving the certificate, please check your domain's DNS records and try again."
     return
         fi
-
-sudo systemctl restart haproxy
-sudo systemctl restart apache2
-sudo x-ui start
-
-
 }
 
 
@@ -1584,7 +1614,7 @@ while true; do
                 backup_path_haproxy_restore="/etc/haproxy/configs_backup_wui"
                 latest_backup=$(ls -v $backup_path_haproxy_restore/haproxy_latest.cfg_* 2>/dev/null | tail -n 1)
                 echo $latest_backup
-                if [ -n $latest_backup ]; then
+                if [ -n "$latest_backup" ]; then
                     cp "$latest_backup" "/etc/haproxy/haproxy.cfg"
                     sleep 10
                     check_restart "haproxy"
@@ -1661,7 +1691,7 @@ while true; do
             echo "Unistall Completed"
             exit 0
             else
-            sudo dds-wui
+            sudo wui-dds
             fi
         ;;
         8)
