@@ -79,15 +79,3 @@ XUI_VERSION_ALI="v1.12.0"
  2. نصب خودکار در این حالت شما یک سرور خام دارین و فقط نیاز به یک دامنه دارین! اسکریپت همه ی کارهارو برای شما انجام میده. نسخه ی مورد نظر شما (سنایی/علیرضا) نصب میشه، سرتیفیکیت ها گرفته میشه و یک سایت وردپرسی به همراه یک پنل xui مخفی به شما تحویل میشه!
 <p style="direction:rtl ; text-align:right">
 ⚠️ پیش‌نیاز: سرور خام (ترجیحاً Ubuntu 22.04/24.04)، رکورد DNS دامنه به IP سرور، پورت‌های 80 و 443 آزاد
-
-<h2>🎈 ویدئو آموزشی </h2>
-
-You Can find my Videos on Daily Digital Skills Channel . See [YouTube](https://youtu.be/OksLefIcUxc) for more information.
-<br>
-<p style="direction:rtl ; text-align:right">
-مشاهده ویدئو آموزشی برای حالت دوم (سرور خام - نصب اتوماتیک پنل دلخواه + وردپرس) (https://youtu.be/OksLefIcUxc)
-  <br>
-
-<h2>🎈 Authors </h2>
-* AzavaxHuman - *Daily Digital Skills* - [AzavaxHuman](https://github.com/azavaxhuman)
-* Forked & maintained by [KanekiDevPro](https://github.com/KanekiDevPro)
