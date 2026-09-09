@@ -207,6 +207,31 @@ getinfo(){
 
 }
 
+set_panel_cert(){
+# $1 = fullchain/cert file, $2 = key file. Sets panel HTTPS cert + restarts panel.
+local cert="$1" key="$2"
+[ -f "$cert" ] && [ -f "$key" ] || { echo -e "${RED}Panel cert files missing, skipping.${RESET}"; return 1; }
+local xui_bin="/usr/local/x-ui/x-ui"
+[ -x "$xui_bin" ] || { echo -e "${RED}x-ui binary not found, skipping.${RESET}"; return 1; }
+if "$xui_bin" setting -h 2>&1 | grep -q -- "-webCert "; then
+    "$xui_bin" setting -webCert "$cert" -webCertKey "$key" > /dev/null 2>&1
+else
+    "$xui_bin" cert -webCert "$cert" -webCertKey "$key" > /dev/null 2>&1
+fi
+if "$xui_bin" setting -getCert 2>/dev/null | grep -qF "$cert"; then
+    echo -e "${GREEN}Panel certificate set.${RESET}"
+else
+    echo -e "${RED}Panel certificate NOT applied (check panel type).${RESET}"
+    return 1
+fi
+if systemctl restart x-ui 2>/dev/null; then
+    echo -e "${GREEN}Panel restarted with new certificate.${RESET}"
+else
+    echo -e "${RED}Panel restart failed, start it manually.${RESET}"
+    return 1
+fi
+}
+
 ACME_install_Get_SSL(){
 
 sudo systemctl stop apache2
@@ -611,6 +636,7 @@ wordpress_only(){
             getinfo
             ACME_install_Get_SSL
                     if [ -f "$fullchain_path" ] ; then
+                    set_panel_cert "$fullchain_path" "$key_path"
                     installwordpress
                     haproxy
                     show_information
@@ -1434,6 +1460,7 @@ echo ""
                 install_mhsanaei
                 get_info_auto
                 ACME_install_Get_SSL_auto
+                set_panel_cert "$fullchain_path_auto" "$key_path_auto"
                 installwordpress_auto
                 haproxy_auto
                 change_xui_settings
@@ -1446,6 +1473,7 @@ echo ""
                 install_alireza
                 get_info_auto
                 ACME_install_Get_SSL_auto
+                set_panel_cert "$fullchain_path_auto" "$key_path_auto"
                 installwordpress_auto
                 haproxy_auto
                 change_xui_settings
