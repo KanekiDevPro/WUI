@@ -57,8 +57,9 @@ VLESS TCP/GRPC REALITY (passthrough واقعی، بدون تداخل)
 ```bash
 git clone https://github.com/KanekiDevPro/WUI.git /root/wui-dds && chmod +x /root/wui-dds/install.sh && /root/wui-dds/install.sh
 ```
-<br><br>
+<br>
 <p>2. اجرای اسکریپت</p>
+
 ```bash
 wui-dds
 ```
