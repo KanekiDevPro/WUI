@@ -54,6 +54,7 @@ VLESS TCP/GRPC REALITY (passthrough واقعی، بدون تداخل)
 <br>
 <br>
 <p>1. نصب اسکریپت</p>
+
 ```bash
 git clone https://github.com/KanekiDevPro/WUI.git /root/wui-dds && chmod +x /root/wui-dds/install.sh && /root/wui-dds/install.sh
 ```
@@ -63,7 +64,7 @@ git clone https://github.com/KanekiDevPro/WUI.git /root/wui-dds && chmod +x /roo
 ```bash
 wui-dds
 ```
-<br><br>
+<br>
 <h2>⚙️ Optional: pin panel version</h2>
 
 <p>بالای اسکریپت (قبل از اجرا) نسخه دلخواه را ست کنید، خالی یعنی latest:</p>
@@ -82,3 +83,6 @@ XUI_VERSION_ALI="v1.12.0"
  2. نصب خودکار در این حالت شما یک سرور خام دارین و فقط نیاز به یک دامنه دارین! اسکریپت همه ی کارهارو برای شما انجام میده. نسخه ی مورد نظر شما (سنایی/علیرضا) نصب میشه، سرتیفیکیت ها گرفته میشه و یک سایت وردپرسی به همراه یک پنل xui مخفی به شما تحویل میشه!
 <p style="direction:rtl ; text-align:right">
 ⚠️ پیش‌نیاز: سرور خام (ترجیحاً Ubuntu 22.04/24.04)، رکورد DNS دامنه به IP سرور، پورت‌های 80 و 443 آزاد
+
+<h2>🎈 Authors </h2>
+* KanekiDevPro - [KanekiDevPro](https://github.com/KanekiDevPro)
