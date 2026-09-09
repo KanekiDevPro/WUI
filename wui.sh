@@ -7,6 +7,10 @@ CYAN=$(tput setaf 6)
 RED=$(tput setaf 1)
 RESET=$(tput sgr0)
 
+# Pin panel versions (empty = latest). e.g. XUI_VERSION_MH="v3.7.0"
+XUI_VERSION_MH=""
+XUI_VERSION_ALI=""
+
 #------------------------------- Public Functions-------------------
 
 generateRandomString() {
@@ -464,6 +468,10 @@ frontend https_front
     #all_tcp_tls_certs_start
 
     #all_tcp_tls_certs_end
+
+    #xhttp_tls_certs_start
+
+    #xhttp_tls_certs_end
     mode http
     acl is_wordpress hdr(host) -i $domain
     acl path_xui path_beg /$xui_path/
@@ -476,6 +484,10 @@ frontend https_front
 
 
     #all_tcp_tls_front_end
+
+    #xhttp_tls_front_start
+
+    #xhttp_tls_front_end
     http-request set-header X-Forwarded-Proto https if { ssl_fc }
     default_backend wordpress_backend
 
@@ -494,6 +506,10 @@ $sub_backend_config
 #all_tcp_tls_backend_start
 
 #all_tcp_tls_backend_end
+
+#xhttp_tls_backend_start
+
+#xhttp_tls_backend_end
 
 
 
@@ -640,7 +656,8 @@ custom_config_menu() {
         echo "1. Vmess TCP http header"
         echo "2. Trojan/Vless/Vmess WS TLS"
         echo "3. VLESS TCP/GRPC REALITY"
-        echo "4. Back to the main menu"
+        echo "4. VLESS/Trojan/VMess XHTTP TLS"
+        echo "5. Back to the main menu"
         echo
         read -p "Enter your desired option (1,2..): " option_custom_config_menu
 
@@ -658,12 +675,16 @@ custom_config_menu() {
                 break
                 ;;
             4)
+                xhttp_tls_insert
+                break
+                ;;
+            5)
                 echo "Returning to the main menu..."
                 clear
                 return  # or use 'break' if you want to exit the script completely
                 ;;
             *)
-                echo "Invalid option: $option_custom_config_menu. Please enter a valid option (1-4)."
+                echo "Invalid option: $option_custom_config_menu. Please enter a valid option (1-5)."
                 ;;
         esac
     done
@@ -742,6 +763,101 @@ echo "  ${BLUE} Path ${RESET}: ${vmess_http_path}"
 echo "${YELLOW}--------------------------------------------------------------------------------------------${RESET}"
 echo ""
 
+}
+
+xhttp_tls_insert(){
+listen_xhttp_tls="127.0.0.3"
+xhttp_tls_port=$(generateRandomPort)
+xhttp_tls_path=$(generateRandomString)
+
+    read -p "Please enter the config SNI :  " xhttp_tls_sni
+    read -p "Is the SIN value the same as your panel's subdomain? ( y / n )" sni_option
+
+    xhttp_tls_sni_fullchain_path="$ssl_path/$xhttp_tls_sni-fullchain.pem"
+    xhttp_tls_sni_pvkey_path="$ssl_path/$xhttp_tls_sni.key"
+    xhttp_tls_sni_mixed_key_path="$ssl_path/$xhttp_tls_sni-mixed.pem"
+
+        if [ "$sni_option" == "y" ] ; then
+
+        echo "Ok, so there is no need to get a certificate"
+        else
+
+        get_ssl_for_configs "$xhttp_tls_sni"
+            if [ -f "${xhttp_tls_sni_mixed_key_path}" ] ; then
+                echo "
+                bind *:443 ssl crt ${xhttp_tls_sni_mixed_key_path}
+                " >> $directory_path/xhttp_tls_certs.tmp
+            else
+                echo -e "Sorry, there was a problem receiving the certificate, please check your domain's DNS records and try again."
+                return 2
+            fi
+
+        fi
+
+    echo "
+#xhttp_tls_front_${xhttp_tls_port}_start
+acl xhttp_tls_${xhttp_tls_port} path_beg /${xhttp_tls_path}
+use_backend xhttp_tls_backend_${xhttp_tls_port} if xhttp_tls_${xhttp_tls_port}
+#xhttp_tls_front_${xhttp_tls_port}_end
+" >> $directory_path/xhttp_tls_front.tmp
+
+    echo "
+#xhttp_tls_backend_${xhttp_tls_port}_start
+backend xhttp_tls_backend_${xhttp_tls_port}
+    mode http
+    server xhttp_tls_server_${xhttp_tls_port} ${listen_xhttp_tls}:${xhttp_tls_port} ssl verify none send-proxy-v2
+#xhttp_tls_backend_${xhttp_tls_port}_end
+    " >> $directory_path/xhttp_tls_backend.tmp
+
+
+
+# مسیرهای فایل
+
+front_file_xhttp_tls="${directory_path}/xhttp_tls_front.tmp"
+backend_file_xhttp_tls="${directory_path}/xhttp_tls_backend.tmp"
+cert_file_xhttp_tls="${directory_path}/xhttp_tls_certs.tmp"
+# ایجاد نسخه موقتی از فایل haproxy.cfg
+temp_cfg=$(mktemp)
+
+# حذف محتوای داخل بلوک‌ها
+sed '/#xhttp_tls_certs_start/,/#xhttp_tls_certs_end/{//!d}' $haproxy_cfg | \
+sed '/#xhttp_tls_front_start/,/#xhttp_tls_front_end/{//!d}' | \
+sed '/#xhttp_tls_backend_start/,/#xhttp_tls_backend_end/{//!d}' > $temp_cfg
+
+# اضافه کردن محتوای فایل‌های tmp به بلوک‌های مربوطه
+awk -v front="$front_file_xhttp_tls" -v back="$backend_file_xhttp_tls" -v crt="$cert_file_xhttp_tls" '
+    /#xhttp_tls_front_end/ {
+        while ((getline line < front) > 0) {
+            print "    " line
+        }
+    }
+    /#xhttp_tls_backend_end/ {
+        while ((getline line < back) > 0) {
+            print "    " line
+        }
+    }
+    /#xhttp_tls_certs_end/ {
+        while ((getline line < crt) > 0) {
+            print "    " line
+        }
+    }
+    { print }
+' $temp_cfg > $haproxy_cfg
+
+# پاک کردن فایل موقت
+rm $temp_cfg
+sudo systemctl restart haproxy
+clear
+echo "${YELLOW}---------------------------VLESS / Trojan / VMess XHTTP -----------------------------${RESET}"
+echo "Congratulations! It was successful. You can use this information to make your configuration."
+echo "  Port : ${xhttp_tls_port}"
+echo "  Listen IP : ${listen_xhttp_tls} "
+echo "  Path : ${xhttp_tls_path}"
+echo "  SNI : ${xhttp_tls_sni}"
+echo "  PublicKey Path : ${xhttp_tls_sni_fullchain_path}"
+echo "  PublicKey Path : ${xhttp_tls_sni_pvkey_path}"
+echo "${YELLOW}--------------------------------------------------------------------------------------------${RESET}"
+echo ""
 }
 
 all_tcp_tls_insert(){
@@ -956,15 +1072,23 @@ database_pass_auto=$(generateRandomString)
 
 install_mhsanaei(){
 
-echo "${GREEN}Installing MHSanaei (3XUI)${RESET}"
+echo "${GREEN}Installing MHSanaei (3XUI)${RESET} ${XUI_VERSION_MH:-latest}"
+if [ -n "$XUI_VERSION_MH" ]; then
+printf 'n\n' | bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh) "$XUI_VERSION_MH" > /dev/null 2>&1
+else
 printf 'n\n' | bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh) > /dev/null 2>&1
+fi
 
 }
 
 install_alireza(){
 
-echo "${GREEN}Installing Alireza (XUI)${RESET}"
+echo "${GREEN}Installing Alireza (XUI)${RESET} ${XUI_VERSION_ALI:-latest}"
+if [ -n "$XUI_VERSION_ALI" ]; then
+printf 'n\n' | bash <(curl -Ls https://raw.githubusercontent.com/alireza0/x-ui/master/install.sh) "$XUI_VERSION_ALI" > /dev/null 2>&1
+else
 printf 'n\n' | bash <(curl -Ls https://raw.githubusercontent.com/alireza0/x-ui/master/install.sh) > /dev/null 2>&1
+fi
 
 }
 
@@ -1236,6 +1360,10 @@ frontend https_front
     #all_tcp_tls_certs_start
 
     #all_tcp_tls_certs_end
+
+    #xhttp_tls_certs_start
+
+    #xhttp_tls_certs_end
     mode http
     acl is_wordpress hdr(host) -i $domain_auto
     acl path_xui path_beg /$xui_path_auto/
@@ -1248,6 +1376,10 @@ frontend https_front
 
 
     #all_tcp_tls_front_end
+
+    #xhttp_tls_front_start
+
+    #xhttp_tls_front_end
     http-request set-header X-Forwarded-Proto https if { ssl_fc }
     default_backend wordpress_backend
 
@@ -1266,6 +1398,10 @@ $sub_backend_config_auto
 #all_tcp_tls_backend_start
 
 #all_tcp_tls_backend_end
+
+#xhttp_tls_backend_start
+
+#xhttp_tls_backend_end
 
 
 
