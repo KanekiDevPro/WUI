@@ -25,15 +25,15 @@
 <p style="direction:rtl ; text-align:right">
 ✅تک پورت شدن پنل و کانفیگ ها (پورت های 443 و 80) با SNI Routing هوشمند
 <p style="direction:rtl ; text-align:right">
-✅پشتیبانی از کانفیگ های
+✅پشتیبانی از کانفیگ های خفن و به‌روز:
 
 VMESS TCP http (header)
-
-VMESS / VLESS / TROJAN WS TLS
 
 VLESS / Trojan / VMess XHTTP TLS (جدید ✨)
 
 VLESS TCP/GRPC REALITY (passthrough واقعی، بدون تداخل)
+<p style="direction:rtl ; text-align:right">
+✅هاردنینگ مخفی‌سازی: هدرهای امنیتی، مخفی کردن ورژن آپاچی/PHP، غیرفعال کردن Trace
 <p style="direction:rtl ; text-align:right">
 ✅دریافت خودکار سرتیفیکیت برای وردپرس و پنل (acme.sh)
 <p style="direction:rtl ; text-align:right">
