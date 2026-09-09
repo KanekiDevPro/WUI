@@ -187,6 +187,7 @@ ACME_install_Get_SSL(){
 sudo systemctl stop apache2
 sudo x-ui stop
 curl https://get.acme.sh | sh -s email=info@$domain
+~/.acme.sh/acme.sh --set-default-ca --server letsencrypt > /dev/null 2>&1
 
 ssl_path="/var/wui-certs"
 mkdir -p "$ssl_path"
@@ -939,6 +940,7 @@ sudo systemctl stop haproxy
 sudo systemctl stop apache2
 sudo x-ui stop
 
+~/.acme.sh/acme.sh --set-default-ca --server letsencrypt > /dev/null 2>&1
 ~/.acme.sh/acme.sh \
   --issue --force --standalone -d "$domain_sni" \
   --fullchain-file "$ssl_path/$domain_sni-fullchain.pem" \
@@ -1023,6 +1025,7 @@ sudo systemctl stop haproxy
 sudo systemctl stop apache2
 sudo x-ui stop
 curl https://get.acme.sh | sh -s email=info@$domain_auto
+~/.acme.sh/acme.sh --set-default-ca --server letsencrypt > /dev/null 2>&1
 
 ssl_path="/var/wui-certs"
 mkdir -p "$ssl_path"
@@ -1439,6 +1442,7 @@ sudo x-ui stop
 ssl_path="/var/wui-certs"
 echo "OK , Now Please Enter your Domain/Subdomain "
 read -p "Domain/Subdomain ( e.g. a.example.com) ->> " domain_global
+~/.acme.sh/acme.sh --set-default-ca --server letsencrypt > /dev/null 2>&1
 ~/.acme.sh/acme.sh \
   --issue --force --standalone -d "$domain_global" \
   --fullchain-file "$ssl_path/$domain_global-fullchain.pem" \
