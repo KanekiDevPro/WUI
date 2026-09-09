@@ -292,6 +292,10 @@ cat <<EOF | sudo tee /etc/apache2/sites-available/$domain.conf
         AllowOverride All
         Require all granted
     </Directory>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header unset X-Powered-By
 
 </VirtualHost>
 
@@ -341,6 +345,9 @@ sudo a2ensite $domain.conf
 sudo a2dissite 000-default
 sudo a2enmod rewrite 
 sudo a2enmod ssl
+sudo a2enmod headers
+printf 'ServerTokens Prod\nServerSignature Off\nTraceEnable Off\n' | sudo tee /etc/apache2/conf-available/wui-hardening.conf > /dev/null
+sudo a2enconf wui-hardening
 sudo service apache2 reload
 sudo systemctl restart apache2
 
@@ -353,7 +360,7 @@ directory_path="/root/configs_tmp"
 
 if [ ! -d "$directory_path" ]; then
     mkdir -p "$directory_path" 
-    touch vmess_http_front.tmp vmess_http_backend.tmp all_tcp_tls_certs.tmp all_tcp_tls_front.tmp all_tcp_tls_backend.tmp
+    touch vmess_http_front.tmp vmess_http_backend.tmp xhttp_tls_certs.tmp xhttp_tls_front.tmp xhttp_tls_backend.tmp
 fi
  
 
@@ -465,9 +472,7 @@ backend bk_sslterm
 
 frontend https_front
     bind 127.0.0.1:8443 ssl crt $mixed_ssl_path $sub_cer_config accept-proxy
-    #all_tcp_tls_certs_start
 
-    #all_tcp_tls_certs_end
 
     #xhttp_tls_certs_start
 
@@ -479,11 +484,9 @@ frontend https_front
     use_backend xui_backend if path_xui
     use_backend wordpress_backend if is_wordpress
 
-    #all_tcp_tls_front_start
 
 
 
-    #all_tcp_tls_front_end
 
     #xhttp_tls_front_start
 
@@ -503,9 +506,7 @@ backend xui_backend
 #sub_Backend
 $sub_backend_config
 
-#all_tcp_tls_backend_start
 
-#all_tcp_tls_backend_end
 
 #xhttp_tls_backend_start
 
@@ -654,10 +655,9 @@ custom_config_menu() {
     while true; do
         echo "Please choose one of these options:"
         echo "1. Vmess TCP http header"
-        echo "2. Trojan/Vless/Vmess WS TLS"
+        echo "2. VLESS/Trojan/VMess XHTTP TLS"
         echo "3. VLESS TCP/GRPC REALITY"
-        echo "4. VLESS/Trojan/VMess XHTTP TLS"
-        echo "5. Back to the main menu"
+        echo "4. Back to the main menu"
         echo
         read -p "Enter your desired option (1,2..): " option_custom_config_menu
 
@@ -667,7 +667,7 @@ custom_config_menu() {
                 break
                 ;;
             2)
-                all_tcp_tls_insert
+                xhttp_tls_insert
                 break
                 ;;
             3)
@@ -675,16 +675,12 @@ custom_config_menu() {
                 break
                 ;;
             4)
-                xhttp_tls_insert
-                break
-                ;;
-            5)
                 echo "Returning to the main menu..."
                 clear
                 return  # or use 'break' if you want to exit the script completely
                 ;;
             *)
-                echo "Invalid option: $option_custom_config_menu. Please enter a valid option (1-5)."
+                echo "Invalid option: $option_custom_config_menu. Please enter a valid option (1-4)."
                 ;;
         esac
     done
@@ -856,101 +852,6 @@ echo "  Path : ${xhttp_tls_path}"
 echo "  SNI : ${xhttp_tls_sni}"
 echo "  PublicKey Path : ${xhttp_tls_sni_fullchain_path}"
 echo "  PublicKey Path : ${xhttp_tls_sni_pvkey_path}"
-echo "${YELLOW}--------------------------------------------------------------------------------------------${RESET}"
-echo ""
-}
-
-all_tcp_tls_insert(){
-listen_all_tcp_tls="127.0.0.3"
-all_tcp_tls_port=$(generateRandomPort)
-all_tcp_tls_path=$(generateRandomString)
-
-    read -p "Please enter the config SNI :  " all_tcp_tls_sni
-    read -p "Is the SIN value the same as your panel's subdomain? ( y / n )" sni_option
-
-    all_tcp_tls_sni_fullchain_path="$ssl_path/$all_tcp_tls_sni-fullchain.pem"
-    all_tcp_tls_sni_pvkey_path="$ssl_path/$all_tcp_tls_sni.key"
-    all_tcp_tls_sni_mixed_key_path="$ssl_path/$all_tcp_tls_sni-mixed.pem"
-
-        if [ "$sni_option" == "y" ] ; then
-
-        echo "Ok, so there is no need to get a certificate"
-        else
-
-        get_ssl_for_configs "$all_tcp_tls_sni"
-            if [ -f "${all_tcp_tls_sni_mixed_key_path}" ] ; then
-                echo "
-                bind *:443 ssl crt ${all_tcp_tls_sni_mixed_key_path}
-                " >> $directory_path/all_tcp_tls_certs.tmp
-            else
-                echo -e "Sorry, there was a problem receiving the certificate, please check your domain's DNS records and try again."
-                return 2
-            fi
-
-        fi
-
-    echo "
-#all_tcp_tls_front_${all_tcp_tls_port}_start
-acl all_tcp_tls_${all_tcp_tls_port} path_beg /${all_tcp_tls_path}
-use_backend all_tcp_tls_backend_${all_tcp_tls_port} if all_tcp_tls_${all_tcp_tls_port}
-#all_tcp_tls_front_${all_tcp_tls_port}_end
-" >> $directory_path/all_tcp_tls_front.tmp
-
-    echo "
-#all_tcp_tls_backend_${all_tcp_tls_port}_start
-backend all_tcp_tls_backend_${all_tcp_tls_port}
-    mode http
-    server all_tcp_tls_server_${all_tcp_tls_port} ${listen_all_tcp_tls}:${all_tcp_tls_port} ssl verify none send-proxy-v2
-#all_tcp_tls_backend_${all_tcp_tls_port}_end
-    " >> $directory_path/all_tcp_tls_backend.tmp
-
-
-
-# مسیرهای فایل
-
-front_file_all_tcp_tls="${directory_path}/all_tcp_tls_front.tmp"
-backend_file_all_tcp_tls="${directory_path}/all_tcp_tls_backend.tmp"
-cert_file_all_tcp_tls="${directory_path}/all_tcp_tls_certs.tmp"
-# ایجاد نسخه موقتی از فایل haproxy.cfg
-temp_cfg=$(mktemp)
-
-# حذف محتوای داخل بلوک‌ها
-sed '/#all_tcp_tls_certs_start/,/#all_tcp_tls_certs_end/{//!d}' $haproxy_cfg | \
-sed '/#all_tcp_tls_front_start/,/#all_tcp_tls_front_end/{//!d}' | \
-sed '/#all_tcp_tls_backend_start/,/#all_tcp_tls_backend_end/{//!d}' > $temp_cfg
-
-# اضافه کردن محتوای فایل‌های tmp به بلوک‌های مربوطه
-awk -v front="$front_file_all_tcp_tls" -v back="$backend_file_all_tcp_tls" -v crt="$cert_file_all_tcp_tls" '
-    /#all_tcp_tls_front_end/ {
-        while ((getline line < front) > 0) {
-            print "    " line
-        }
-    }
-    /#all_tcp_tls_backend_end/ {
-        while ((getline line < back) > 0) {
-            print "    " line
-        }
-    }
-    /#all_tcp_tls_certs_end/ {
-        while ((getline line < crt) > 0) {
-            print "    " line
-        }
-    }
-    { print }
-' $temp_cfg > $haproxy_cfg
-
-# پاک کردن فایل موقت
-rm $temp_cfg
-sudo systemctl restart haproxy
-clear
-echo "${YELLOW}---------------------------Vless /Trojan /Vmess WS(websocket) -----------------------------${RESET}"
-echo "Congratulations! It was successful. You can use this information to make your configuration."
-echo "  Port : ${all_tcp_tls_port}"
-echo "  Listen IP : ${listen_all_tcp_tls} "
-echo "  Path : ${all_tcp_tls_path}"
-echo "  SNI : ${all_tcp_tls_sni}"
-echo "  PublicKey Path : ${all_tcp_tls_sni_fullchain_path}"
-echo "  PublicKey Path : ${all_tcp_tls_sni_pvkey_path}"
 echo "${YELLOW}--------------------------------------------------------------------------------------------${RESET}"
 echo ""
 }
@@ -1201,6 +1102,10 @@ cat <<EOF | sudo tee /etc/apache2/sites-available/$domain_auto.conf
         AllowOverride All
         Require all granted
     </Directory>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header unset X-Powered-By
 
 </VirtualHost>
 
@@ -1250,6 +1155,9 @@ sudo a2ensite $domain_auto.conf
 sudo a2dissite 000-default
 sudo a2enmod rewrite 
 sudo a2enmod ssl
+sudo a2enmod headers
+printf 'ServerTokens Prod\nServerSignature Off\nTraceEnable Off\n' | sudo tee /etc/apache2/conf-available/wui-hardening.conf > /dev/null
+sudo a2enconf wui-hardening
 sudo service apache2 reload
 sudo systemctl restart apache2
 
@@ -1357,9 +1265,7 @@ backend bk_sslterm
 
 frontend https_front
     bind 127.0.0.1:8443 ssl crt $mixed_ssl_path_auto $sub_cer_config_auto accept-proxy
-    #all_tcp_tls_certs_start
 
-    #all_tcp_tls_certs_end
 
     #xhttp_tls_certs_start
 
@@ -1371,11 +1277,9 @@ frontend https_front
     use_backend xui_backend if path_xui
     use_backend wordpress_backend if is_wordpress
 
-    #all_tcp_tls_front_start
 
 
 
-    #all_tcp_tls_front_end
 
     #xhttp_tls_front_start
 
@@ -1395,9 +1299,7 @@ backend xui_backend
 #sub_Backend
 $sub_backend_config_auto
 
-#all_tcp_tls_backend_start
 
-#all_tcp_tls_backend_end
 
 #xhttp_tls_backend_start
 
